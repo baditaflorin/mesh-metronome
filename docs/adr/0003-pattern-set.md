@@ -13,13 +13,13 @@ Polyrhythm pedagogy lives or dies by which subdivisions you pick. Too many and t
 
 Five subdivisions, picked to span "easy" → "your brain breaks":
 
-| ID | Subdivisions / bar (4/4) | Why |
-|---|---|---|
-| `quarter` | 4 | the pulse — anchor for everything else |
-| `eighth` | 8 | 2:1 against quarter, easy entry |
-| `triplet` | 6 | 3:2 against quarter, the classic "swing in your head" |
-| `dotted-eighth` | 16/3 | clave / Afro-Cuban pulse, 3:8 against quarter |
-| `fives` | 5 | 5:4 against quarter, the genuinely hard one |
+| ID              | Subdivisions / bar (4/4) | Why                                                   |
+| --------------- | ------------------------ | ----------------------------------------------------- |
+| `quarter`       | 4                        | the pulse — anchor for everything else                |
+| `eighth`        | 8                        | 2:1 against quarter, easy entry                       |
+| `triplet`       | 6                        | 3:2 against quarter, the classic "swing in your head" |
+| `dotted-eighth` | 16/3                     | clave / Afro-Cuban pulse, 3:8 against quarter         |
+| `fives`         | 5                        | 5:4 against quarter, the genuinely hard one           |
 
 A 4-person session is meant to assign quarter + eighth + triplet + fives. The dotted-eighth is provided for fans of cross-rhythmic 3:16.
 
