@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useVibration } from "@baditaflorin/mesh-common";
 import { createRoomSync } from "../sync/yjsRoom";
 import { createClockSync } from "../sync/clockSync";
 import { maybeFetchTurnCredentials } from "../sync/iceConfig";
@@ -37,6 +38,7 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
   const [phase, setPhase] = useState(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lastTickRef = useRef(-1);
+  const vib = useVibration();
 
   const mesh = useMemo(() => {
     if (!armed) return null;
@@ -84,7 +86,7 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
         const tickT = subIdx * subMs;
         const ahead = (tickT - t) / 1000; // negative if just passed
         click(ctx, PATTERN[pattern].freq, Math.max(0, ahead));
-        if (haptic && navigator.vibrate) navigator.vibrate(15);
+        if (haptic) vib.vibrate(15);
       }
 
       frame = requestAnimationFrame(tick);
