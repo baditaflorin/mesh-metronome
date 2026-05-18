@@ -1,6 +1,9 @@
 export const appConfig = {
   appName: "mesh-metronome",
   storagePrefix: "mesh-metronome",
+  description:
+    "Peer-to-peer mesh: 4 phones become a polyrhythm grid, each playing a clock-synced subdivision of the same BPM.",
+  accentHex: "#ff5e7a",
   version: __APP_VERSION__,
   commit: __GIT_COMMIT__,
   repositoryUrl: "https://github.com/baditaflorin/mesh-metronome",
