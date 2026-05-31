@@ -121,6 +121,22 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
     );
   }
 
+  const cellCount = Math.ceil(PATTERN[pattern].subdivisionsPerBar);
+  // Which subdivision is lit right now, derived from the SHARED mesh-clock
+  // phase (not a per-peer local timer): the same boundary test the cells use.
+  // Exposed as a data attribute so the bar position is observable/diagnosable
+  // — peers on the same mesh clock, BPM, and pattern light the same cell.
+  // -1 while idle / between the last sub-boundary and the end of the bar.
+  const subs = PATTERN[pattern].subdivisionsPerBar;
+  const isActive = (i: number) => running && phase >= i / subs && phase < (i + 1) / subs;
+  let activeCell = -1;
+  for (let i = 0; i < cellCount; i++) {
+    if (isActive(i)) {
+      activeCell = i;
+      break;
+    }
+  }
+
   return (
     <div
       className="metro-stage"
@@ -130,11 +146,9 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
         {peers + 1} phones · {PATTERN[pattern].label} · {bpm} BPM
       </div>
 
-      <div className="metro-bar">
-        {Array.from({ length: Math.ceil(PATTERN[pattern].subdivisionsPerBar) }).map((_, i) => {
-          const start = i / PATTERN[pattern].subdivisionsPerBar;
-          const end = (i + 1) / PATTERN[pattern].subdivisionsPerBar;
-          const active = phase >= start && phase < end;
+      <div className="metro-bar" data-active-cell={activeCell}>
+        {Array.from({ length: cellCount }).map((_, i) => {
+          const active = isActive(i);
           return <div key={i} className={`metro-cell ${active ? "active" : ""}`} />;
         })}
       </div>
