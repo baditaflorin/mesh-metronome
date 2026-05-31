@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useVibration } from "@baditaflorin/mesh-common";
+import { useTone, useVibration } from "@baditaflorin/mesh-common";
 import { createRoomSync } from "../sync/yjsRoom";
 import { createClockSync } from "../sync/clockSync";
 import { maybeFetchTurnCredentials } from "../sync/iceConfig";
@@ -36,8 +36,8 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
   const [running, setRunning] = useState(false);
   const [peers, setPeers] = useState(0);
   const [phase, setPhase] = useState(0);
-  const audioCtxRef = useRef<AudioContext | null>(null);
   const lastTickRef = useRef(-1);
+  const tone = useTone();
   const vib = useVibration();
 
   const mesh = useMemo(() => {
@@ -67,8 +67,6 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
 
   useEffect(() => {
     if (!mesh || !running) return undefined;
-    const ctx = audioCtxRef.current;
-    if (!ctx) return undefined;
 
     const barMs = BAR_MS_AT_120 * (120 / bpm);
     const subMs = barMs / PATTERN[pattern].subdivisionsPerBar;
@@ -85,7 +83,14 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
         // Schedule the click for the START of this subdivision.
         const tickT = subIdx * subMs;
         const ahead = (tickT - t) / 1000; // negative if just passed
-        click(ctx, PATTERN[pattern].freq, Math.max(0, ahead));
+        tone.play({
+          freq: PATTERN[pattern].freq,
+          type: "square",
+          duration: 0.05,
+          gain: 0.18,
+          attack: 0.001,
+          at: Math.max(0, ahead),
+        });
         if (haptic) vib.vibrate(15);
       }
 
@@ -110,8 +115,7 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
           type="button"
           className="metro-arm-button"
           onClick={() => {
-            audioCtxRef.current ??= new AudioContext();
-            void audioCtxRef.current.resume();
+            void tone.resume();
             setArmed(true);
           }}
         >
@@ -166,18 +170,4 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
       </p>
     </div>
   );
-}
-
-function click(ctx: AudioContext, freq: number, aheadSeconds: number) {
-  const t0 = ctx.currentTime + aheadSeconds;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = "square";
-  osc.frequency.setValueAtTime(freq, t0);
-  gain.gain.setValueAtTime(0.0001, t0);
-  gain.gain.exponentialRampToValueAtTime(0.18, t0 + 0.001);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(t0);
-  osc.stop(t0 + 0.06);
 }
