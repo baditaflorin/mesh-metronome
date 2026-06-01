@@ -96,6 +96,18 @@ body,
   backdrop-filter: blur(6px);
 }
 
+.metro-warn {
+  max-width: min(420px, 90%);
+  text-align: center;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #ffcf5e;
+  background: rgba(255, 207, 94, 0.12);
+  border: 1px solid rgba(255, 207, 94, 0.35);
+  padding: 0.6em 0.9em;
+  border-radius: 10px;
+}
+
 .metro-bar {
   width: min(420px, 90%);
   display: grid;

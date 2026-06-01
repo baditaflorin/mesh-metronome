@@ -36,6 +36,7 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
   const [running, setRunning] = useState(false);
   const [peers, setPeers] = useState(0);
   const [phase, setPhase] = useState(0);
+  const [mismatchedBpms, setMismatchedBpms] = useState<number[]>([]);
   const lastTickRef = useRef(-1);
   const tone = useTone();
   const vib = useVibration();
@@ -59,11 +60,21 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
     };
   }, [mesh]);
 
+  // Publish this phone's BPM so peers can flag a mismatch (the polyrhythm only
+  // locks when every phone runs the same BPM — see README).
+  useEffect(() => {
+    mesh?.clock.setBpm(bpm);
+  }, [mesh, bpm]);
+
   useEffect(() => {
     if (!mesh) return undefined;
-    const i = setInterval(() => setPeers(mesh.clock.peerCount()), 500);
+    const i = setInterval(() => {
+      setPeers(mesh.clock.peerCount());
+      // Peers advertising a BPM other than ours: the polyrhythm won't fit.
+      setMismatchedBpms(mesh.clock.peerBpms().filter((b) => b !== bpm));
+    }, 500);
     return () => clearInterval(i);
-  }, [mesh]);
+  }, [mesh, bpm]);
 
   useEffect(() => {
     if (!mesh || !running) return undefined;
@@ -149,6 +160,13 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
       <div className="metro-hud">
         {peers + 1} phones · {PATTERN[pattern].label} · {bpm} BPM
       </div>
+
+      {mismatchedBpms.length > 0 && (
+        <div className="metro-warn" role="status">
+          BPM mismatch — {mismatchedBpms.join(", ")} on the mesh, you're at {bpm}. Set every phone
+          to the same BPM in Settings or the polyrhythm won't lock.
+        </div>
+      )}
 
       <div className="metro-bar" data-active-cell={activeCell}>
         {Array.from({ length: cellCount }).map((_, i) => {

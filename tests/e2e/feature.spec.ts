@@ -122,3 +122,69 @@ test("four phones lock to the same mesh-clock bar cell even when one peer's wall
     await cleanup();
   }
 });
+
+/**
+ * Cross-peer BPM-mismatch detection. The README is emphatic that BPM "must
+ * match across phones for the polyrhythm to lock" — so when two phones run
+ * different BPMs, each phone must SEE that the other is off-tempo (the BPM is
+ * relayed peer-to-peer over the same awareness channel the clock sync uses).
+ * This proves both the cross-peer wire (peer b's BPM reaches peer a) AND the
+ * UX safety net that turns a silent "why is this drifting?" into a clear
+ * message.
+ */
+test("each phone warns when a peer is running a different BPM", async ({ browser, baseURL }) => {
+  const room = `e2e-bpm-${Math.random().toString(36).slice(2, 8)}`;
+  const { context, a, b, cleanup } = await openTwoPeers(browser, baseURL ?? "", {
+    storagePrefix,
+    roomId: room,
+  });
+  try {
+    // Seed DIFFERENT BPMs per peer in localStorage before they connect:
+    // peer a stays at the default 120, peer b is forced to 90.
+    await b.evaluate((key) => localStorage.setItem(key, "90"), `${storagePrefix}:bpm`);
+    await b.reload();
+
+    for (const p of [a, b]) {
+      await p.getByRole("button", { name: /connect to mesh/i }).click();
+      await p.getByRole("button", { name: /^start$/i }).click();
+    }
+
+    // Both phones must connect to each other first.
+    await expect(a.locator(".metro-hud")).toContainText("2 phones", { timeout: 15_000 });
+    await expect(b.locator(".metro-hud")).toContainText("2 phones", { timeout: 15_000 });
+
+    // Each phone sees the OTHER phone's BPM and flags the mismatch, naming the
+    // off-tempo value it received over the mesh.
+    await expect(a.locator(".metro-warn")).toContainText("90", { timeout: 15_000 });
+    await expect(b.locator(".metro-warn")).toContainText("120", { timeout: 15_000 });
+  } finally {
+    await cleanup();
+  }
+});
+
+/**
+ * The flip side: when both phones agree on BPM, neither shows the warning.
+ * Guards against a false-positive mismatch banner that would erode trust.
+ */
+test("no BPM-mismatch warning when both phones share a BPM", async ({ browser, baseURL }) => {
+  const room = `e2e-bpm-ok-${Math.random().toString(36).slice(2, 8)}`;
+  const { a, b, cleanup } = await openTwoPeers(browser, baseURL ?? "", {
+    storagePrefix,
+    roomId: room,
+  });
+  try {
+    for (const p of [a, b]) {
+      await p.getByRole("button", { name: /connect to mesh/i }).click();
+      await p.getByRole("button", { name: /^start$/i }).click();
+    }
+    await expect(a.locator(".metro-hud")).toContainText("2 phones", { timeout: 15_000 });
+    await expect(b.locator(".metro-hud")).toContainText("2 phones", { timeout: 15_000 });
+
+    // Let a couple of awareness rounds flow, then assert no warning surfaced.
+    await a.waitForTimeout(2_500);
+    await expect(a.locator(".metro-warn")).toHaveCount(0);
+    await expect(b.locator(".metro-warn")).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});

@@ -13,6 +13,8 @@ Hand four phones to four people. Each phone plays a different subdivision — qu
 
 You quickly notice how much harder polyrhythms are when you can hear all five voices at once.
 
+**Try it in 30 seconds:** open the live link in two browser tabs, hit **Connect to mesh** then **Start** in each, and give them different subdivisions in ⚙ Settings — the two voices stay locked because both tabs share one mesh clock. (Same BPM on both is the catch; if they differ, each tab shows a BPM-mismatch warning so you know why it won't lock.)
+
 ## How it works
 
 1. Yjs over y-webrtc connects the phones.

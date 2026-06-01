@@ -20,12 +20,16 @@ import type { WebrtcProvider } from "y-webrtc";
 const PING_INTERVAL_MS = 1500;
 const SAMPLE_TTL_MS = 5000;
 
-type Sample = { offset: number; receivedAt: number };
+type Sample = { offset: number; receivedAt: number; bpm?: number };
 
 export type ClockSync = {
   meshNow: () => number;
   destroy: () => void;
   peerCount: () => number;
+  /** Publish this phone's BPM so peers can detect a mismatch. */
+  setBpm: (bpm: number) => void;
+  /** Distinct BPM values currently advertised by live remote peers. */
+  peerBpms: () => number[];
 };
 
 type Awareness = {
@@ -38,14 +42,21 @@ type Awareness = {
 
 export function createClockSync(provider: WebrtcProvider | null): ClockSync {
   if (!provider) {
-    return { meshNow: () => Date.now(), destroy: () => undefined, peerCount: () => 0 };
+    return {
+      meshNow: () => Date.now(),
+      destroy: () => undefined,
+      peerCount: () => 0,
+      setBpm: () => undefined,
+      peerBpms: () => [],
+    };
   }
 
   const awareness = (provider as unknown as { awareness: Awareness }).awareness;
   const samples = new Map<number, Sample>();
+  let localBpm: number | undefined;
 
   const publish = () => {
-    awareness.setLocalStateField("clock", { t: Date.now() });
+    awareness.setLocalStateField("clock", { t: Date.now(), bpm: localBpm });
   };
 
   const onChange = () => {
@@ -56,9 +67,10 @@ export function createClockSync(provider: WebrtcProvider | null): ClockSync {
     });
     states.forEach((state, id) => {
       if (id === awareness.clientID) return;
-      const clock = state["clock"] as { t?: number } | undefined;
+      const clock = state["clock"] as { t?: number; bpm?: number } | undefined;
       if (typeof clock?.t === "number") {
-        samples.set(id, { offset: clock.t - now, receivedAt: now });
+        const bpm = typeof clock.bpm === "number" ? clock.bpm : undefined;
+        samples.set(id, { offset: clock.t - now, receivedAt: now, bpm });
       }
     });
   };
@@ -92,5 +104,19 @@ export function createClockSync(provider: WebrtcProvider | null): ClockSync {
 
   const peerCount = () => samples.size;
 
-  return { meshNow, destroy, peerCount };
+  const setBpm = (bpm: number) => {
+    localBpm = bpm;
+    publish();
+  };
+
+  const peerBpms = () => {
+    const cutoff = Date.now() - SAMPLE_TTL_MS;
+    const seen = new Set<number>();
+    samples.forEach((s) => {
+      if (s.receivedAt >= cutoff && typeof s.bpm === "number") seen.add(s.bpm);
+    });
+    return [...seen];
+  };
+
+  return { meshNow, destroy, peerCount, setBpm, peerBpms };
 }
