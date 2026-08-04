@@ -20,6 +20,18 @@ import type { WebrtcProvider } from "y-webrtc";
 const PING_INTERVAL_MS = 1500;
 const SAMPLE_TTL_MS = 5000;
 
+// Awareness state is attacker-controllable: any peer who knows (or guesses —
+// the default room is literally "default") the room id can join and publish
+// arbitrary JSON via Yjs awareness, no auth required. A single malformed or
+// adversarial `clock.t` (NaN/Infinity/a bogus huge value) must not be able to
+// poison meshNow() for everyone else in the room — that previously produced a
+// silent, permanent NaN mesh-clock (dead audio, blank progress bar, no error)
+// for every other peer for as long as the bad sample kept refreshing.
+// No real device's wall clock should ever be a full day off from ours.
+const MAX_PLAUSIBLE_OFFSET_MS = 24 * 60 * 60 * 1000;
+const MIN_PLAUSIBLE_BPM = 1;
+const MAX_PLAUSIBLE_BPM = 1000;
+
 type Sample = { offset: number; receivedAt: number; bpm?: number };
 
 export type ClockSync = {
@@ -68,10 +80,20 @@ export function createClockSync(provider: WebrtcProvider | null): ClockSync {
     states.forEach((state, id) => {
       if (id === awareness.clientID) return;
       const clock = state["clock"] as { t?: number; bpm?: number } | undefined;
-      if (typeof clock?.t === "number") {
-        const bpm = typeof clock.bpm === "number" ? clock.bpm : undefined;
-        samples.set(id, { offset: clock.t - now, receivedAt: now, bpm });
-      }
+      // `typeof x === "number"` alone does NOT reject NaN/Infinity — both are
+      // type "number" in JS — so validate finiteness (and plausibility)
+      // explicitly before trusting anything a remote peer published.
+      if (typeof clock?.t !== "number" || !Number.isFinite(clock.t)) return;
+      const offset = clock.t - now;
+      if (Math.abs(offset) > MAX_PLAUSIBLE_OFFSET_MS) return;
+      const bpm =
+        typeof clock.bpm === "number" &&
+        Number.isFinite(clock.bpm) &&
+        clock.bpm >= MIN_PLAUSIBLE_BPM &&
+        clock.bpm <= MAX_PLAUSIBLE_BPM
+          ? clock.bpm
+          : undefined;
+      samples.set(id, { offset, receivedAt: now, bpm });
     });
   };
 

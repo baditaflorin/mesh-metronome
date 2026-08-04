@@ -85,6 +85,17 @@ export function Metronome({ roomId, pattern, bpm, haptic }: Props) {
     let frame = 0;
     const tick = () => {
       const t = mesh.clock.meshNow();
+      // Defense in depth: meshNow() is derived from remote-peer awareness
+      // data (clockSync.ts validates it, but never trust a shared clock
+      // value blindly at the point it drives audio scheduling). A non-finite
+      // `t` would otherwise make every frame look like "a new tick" forever
+      // (NaN !== lastTickRef.current is always true) and hand NaN to the Web
+      // Audio scheduler, which throws — silently, since tone.play() catches
+      // it — leaving the metronome running with no audio and no error.
+      if (!Number.isFinite(t)) {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
       const inBar = ((t % barMs) + barMs) % barMs;
       setPhase(inBar / barMs);
 
